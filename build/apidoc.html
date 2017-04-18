@@ -61,12 +61,168 @@
 
     <li class="apidocModuleLi"><a href="#apidoc.module.minimist">module minimist</a><ol>
 
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.minimist.minimist">
+            function <span class="apidocSignatureSpan"></span>minimist
+            <span class="apidocSignatureSpan">(args, opts)</span>
+            </a>
+
+        </li>
+
     </ol></li>
 
 </ol></div>
 
 <div class="apidocSectionDiv">
 <h1><a href="#apidoc.module.minimist" id="apidoc.module.minimist">module minimist</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.minimist.minimist" id="apidoc.element.minimist.minimist">
+        function <span class="apidocSignatureSpan"></span>minimist
+        <span class="apidocSignatureSpan">(args, opts)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">minimist = function (args, opts) {
+    if (!opts) opts = {};
+
+    var flags = { bools : {}, strings : {}, unknownFn: null };
+
+    if (typeof opts[&#x27;unknown&#x27;] === &#x27;function&#x27;) {
+        flags.unknownFn = opts[&#x27;unknown&#x27;];
+    }
+
+    if (typeof opts[&#x27;boolean&#x27;] === &#x27;boolean&#x27; &#x26;&#x26; opts[&#x27;boolean&#x27;]) {
+      flags.allBools = true;
+    } else {
+      [].concat(opts[&#x27;boolean&#x27;]).filter(Boolean).forEach(function (key) {
+          flags.bools[key] = true;
+      });
+    }
+
+    var aliases = {};
+    Object.keys(opts.alias || {}).forEach(function (key) {
+        aliases[key] = [].concat(opts.alias[key]);
+        aliases[key].forEach(function (x) {
+            aliases[x] = [key].concat(aliases[key].filter(function (y) {
+                return x !== y;
+            }));
+        });
+    });
+
+    [].concat(opts.string).filter(Boolean).forEach(function (key) {
+        flags.strings[key] = true;
+        if (aliases[key]) {
+            flags.strings[aliases[key]] = true;
+        }
+     });
+
+    var defaults = opts[&#x27;default&#x27;] || {};
+
+    var argv = { _ : [] };
+    Object.keys(flags.bools).forEach(function (key) {
+        setArg(key, defaults[key] === undefined ? false : defaults[key]);
+    });
+
+    var notFlags = [];
+
+    if (args.indexOf(&#x27;--&#x27;) !== -1) {
+        notFlags = args.slice(args.indexOf(&#x27;--&#x27;)+1);
+        args = args.slice(0, args.indexOf(&#x27;--&#x27;));
+    }
+
+    function argDefined(key, arg) {
+        return (flags.allBools &#x26;&#x26; /^--[^=]+$/.test(arg)) ||
+            flags.strings[key] || flags.bools[key] || aliases[key];
+    }
+
+    function setArg (key, val, arg) {
+        if (arg &#x26;&#x26; flags.unknownFn &#x26;&#x26; !argDefined(key, arg)) {
+            if (flags.unknownFn(arg) === false) return;
+        }
+
+        var value = !flags.strings[key] &#x26;&#x26; isNumber(val)
+            ? Number(val) : val
+        ;
+        setKey(argv, key.split(&#x27;.&#x27;), value);
+
+        (aliases[key] || []).forEach(function (x) {
+            setKey(argv, x.split(&#x27;.&#x27;), value);
+        });
+    }
+
+    function setKey (obj, keys, value) {
+        var o = obj;
+        keys.slice(0,-1).forEach(function (key) {
+            if (o[key] === undefined) o[key] = {};
+            o = o[key];
+        });
+
+        var key = keys[keys.length - 1];
+        if (o[key] === undefined || flags.bools[key] || typeof o[key] === &#x27;boolean&#x27;) {
+            o[key] = value;
+        }
+        else if (Array.isArray(o[key])) {
+            o[key].push(value);
+        }
+        else {
+            o[key] = [ o[key], value ];
+        }
+    }
+
+    function aliasIsBoolean(key) {
+      return aliases[key].some(function (x) {
+          return flags.bools[x];
+      });
+    }
+
+    for (var i = 0; i &#x3c; args.length; i++) {
+        var arg = args[i];
+
+        if (/^--.+=/.test(arg)) {
+            // Using [\s\S] instead of . because js doesn&#x27;t support the
+            // &#x27;dotall&#x27; regex modifier. See:
+            // http://stackoverflow.com/a/1068308/13216
+            var m = arg.match(/^--([^=]+)=([\s\S]*)$/);
+            var key = m[1];
+            var value = m[2];
+            if (flags.bools[key]) {
+                value = value !== &#x27;false&#x27;;
+            }
+            setArg(key, value, arg);
+        }
+        else if (/^--no-.+/.test(arg)) {
+            var key = arg.match(/^--no-(.+)/)[1];
+            setArg(key, false, arg);
+        }
+        else if (/^--.+/.test(arg)) {
+            var key = arg.match(/^--(.+)/)[1];
+            var next = args[i + 1];
+            if (next !== undefined &#x26;&#x26; !/^-/.test(next)
+            &#x26;&#x26; !flags.bools[key]
+            &#x26;&#x26; !flags.allBools
+            &#x26;&#x26; (aliases[key] ? !aliasIsBoolean(key) : true)) {
+                setArg(key, next, arg);
+                i++;
+            }
+            else if (/^(true|false)$/.test(next)) {
+                setArg(key, next === &#x27;true&#x27;, arg);
+                i++;
+            }
+            else {
+                setArg(key, flags.strings[key] ? &#x27;&#x27; : true, arg);
+            }
+        }
+        else if (/^-[^-]+/.test(arg)) {
+            var letters = arg.slice(1,-1).split(&#x27;&#x27;);
+
+            var broken = false;
+            for (var j = 0 ...</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
 
 </div>
 
